@@ -1,0 +1,50 @@
+# hermass self-hosting overlay (Debian VM, behind Tailscale).
+#
+# Usage from the repository root:
+#   docker compose -f docker-compose.yml -f deploy/hermass/docker-compose.override.yml up -d
+#
+# Differences from the stock stack:
+#   * Caddy is disabled (ports 80/443 belong to other services on this host and
+#     TLS is terminated outside the stack).
+#   * The dashboard is published on the Tailscale interface only, never 0.0.0.0.
+#   * Authentication is the built-in automatic-admin mode (E2E_TEST_MODE), which
+#     is only safe because the port is tailnet-only. Do not expose it publicly.
+#   * Images come from the fork's own GHCR packages instead of the upstream ones.
+
+services:
+  caddy:
+    profiles: ["unused"]
+
+  github-rewards-scheduler:
+    profiles: ["unused"]
+
+  control-center:
+    image: ghcr.io/the-spleen/vintrack-vinted-monitor/control-center:latest
+    # Compose merges port lists instead of replacing them, so the stock
+    # 127.0.0.1:3000 binding stays (loopback-only, harmless) and the dashboard
+    # is additionally published on the Tailscale address.
+    ports:
+      - "100.118.96.109:8791:3000"
+    environment:
+      - E2E_TEST_MODE=true
+      - E2E_TEST_USER_ID=admin
+      - E2E_TEST_USER_NAME=Hermass Admin
+      - E2E_TEST_USER_EMAIL=admin@vintrack.hermass
+      - AUTH_URL=http://100.118.96.109:8791
+      - AUTH_TRUST_HOST=true
+      - SEO_INDEXING_ENABLED=false
+
+  control-center-migrate:
+    image: ghcr.io/the-spleen/vintrack-vinted-monitor/control-center:latest
+
+  vinted-service:
+    image: ghcr.io/the-spleen/vintrack-vinted-monitor/vinted-service:latest
+
+  worker:
+    image: ghcr.io/the-spleen/vintrack-vinted-monitor/worker:latest
+
+  id-scanner:
+    image: ghcr.io/the-spleen/vintrack-vinted-monitor/worker:latest
+
+  proxy-maintainer:
+    image: ghcr.io/the-spleen/vintrack-vinted-monitor/worker:latest
